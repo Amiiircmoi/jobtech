@@ -1,0 +1,8 @@
+# Copier en terraform.tfvars (gitignoré) et adapter.
+region      = "eu-west-3"
+project     = "jobtech"
+name_suffix = "local"        # "prod" sur AWS réel
+
+# Réplication S3 inter-région : laisser false en local (LocalStack Community),
+# passer à true lors du déploiement AWS réel.
+enable_replication = false

@@ -1,0 +1,7 @@
+# Dépendances lourdes pour le scraping navigateur (Indeed, Glassdoor).
+# OPTIONNEL : la démo et les tests s'appuient sur des données synthétiques
+# reproductibles, donc le navigateur n'est pas requis pour faire tourner la plateforme.
+-r requirements.txt
+
+selenium==4.27.1
+undetected-chromedriver==3.5.5

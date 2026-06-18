@@ -1,0 +1,11 @@
+ResponseId,MainBranch,Age,Country,EdLevel,YearsCodePro,DevType,ConvertedCompYearly,LanguageHaveWorkedWith,Currency
+1,I am a developer by profession,25-34 years old,France,Master's degree,5,Backend,62000,Python;SQL,EUR European Euro
+2,I am a developer by profession,25-34 years old,Germany,Bachelor's degree,8,Full-stack,78000,JavaScript;TypeScript;React,EUR European Euro
+3,I am a developer by profession,35-44 years old,United Kingdom,Master's degree,12,DevOps,90000,Go;Docker;Kubernetes,GBP Pound sterling
+4,I am a developer by profession,18-24 years old,Spain,Bachelor's degree,2,Frontend,38000,JavaScript;React,EUR European Euro
+5,I am a developer by profession,25-34 years old,Netherlands,Master's degree,6,Backend,72000,Java;SQL,EUR European Euro
+6,I am a developer by profession,45-54 years old,United States,Professional degree,20,Cloud,145000,AWS;Python;Docker,USD US Dollar
+7,I am a developer by profession,25-34 years old,Canada,Bachelor's degree,7,Backend,98000,Rust;Go,CAD Canadian Dollar
+8,I am a developer by profession,35-44 years old,Australia,Master's degree,10,Full-stack,110000,TypeScript;React;AWS,AUD Australian Dollar
+9,I am a developer by profession,25-34 years old,Italy,Bachelor's degree,4,Backend,41000,Python;Django,EUR European Euro
+10,I am a developer by profession,25-34 years old,France,Master's degree,9,DevOps,74000,Kubernetes;Docker;AWS,EUR European Euro

@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DJANGO_SECRET_KEY: ci-secret-key-not-for-production
+  DJANGO_DEBUG: "False"
+  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+  DATABASE_URL: postgres://jobtech:jobtech@localhost:5432/jobtech
+
+jobs:
+  # ── Lint + tests + exécution réelle du pipeline ETL ──────────────────────
+  quality:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: jobtech
+          POSTGRES_PASSWORD: jobtech
+          POSTGRES_DB: jobtech
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U jobtech"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Installer les dépendances (dev)
+        run: pip install -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check pipeline api orchestration tests
+      - name: Exécuter le pipeline médaillon (crée le schéma + charge le DWH)
+        run: python -m pipeline.run all
+      - name: Tests (pytest + couverture, seuil 75%)
+        run: pytest -q --cov --cov-report=term-missing --cov-fail-under=75
+
+  # ── Validation des definitions Dagster ───────────────────────────────────
+  orchestration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Installer Dagster
+        run: pip install -r requirements-orchestration.txt
+      - name: Valider les definitions Dagster
+        run: dagster definitions validate -m orchestration.definitions
+
+  # ── Build des images + smoke `docker compose up` ────────────────────────
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Générer un .env de CI (consommé par docker-compose)
+        run: |
+          cat > .env <<'EOF'
+          DJANGO_SECRET_KEY=ci-secret-key-not-for-production
+          DJANGO_DEBUG=False
+          DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,api
+          POSTGRES_DB=jobtech
+          POSTGRES_USER=jobtech
+          POSTGRES_PASSWORD=jobtech
+          POSTGRES_HOST=db
+          POSTGRES_PORT=5432
+          DATABASE_URL=postgres://jobtech:jobtech@db:5432/jobtech
+          EOF
+      - name: Build des images (API + ETL)
+        run: docker compose build
+      - name: Démarrer la base + attendre la santé
+        run: |
+          docker compose up -d db
+          for i in $(seq 1 20); do
+            docker compose exec -T db pg_isready -U jobtech && break
+            sleep 3
+          done
+      - name: Charger le DWH via le conteneur ETL (one-shot)
+        run: docker compose run --rm --entrypoint python etl -m pipeline.run all
+      - name: Démarrer l'API et vérifier un endpoint
+        run: |
+          docker compose up -d api
+          for i in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/dimensions/ || true)
+            echo "tentative $i → HTTP $code"
+            [ "$code" = "200" ] && break
+            sleep 3
+          done
+          test "$code" = "200"
+      - name: Logs en cas d'échec
+        if: failure()
+        run: docker compose logs --tail 80
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  # ── Publication des images sur GHCR (uniquement sur main) ───────────────
+  publish:
+    needs: [quality, orchestration, docker]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Nom de dépôt en minuscules (contrainte de tag Docker)
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - name: Connexion à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build + push image API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.REPO_LC }}-api:latest
+      - name: Build + push image ETL
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.REPO_LC }}-etl:latest

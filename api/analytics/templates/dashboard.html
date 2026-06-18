@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>jobtech — indicateurs emploi Tech</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#0d1117; --card:#161b22; --bd:#30363d; --fg:#e6edf3; --accent:#3fb950; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+    header { padding:24px 32px; border-bottom:1px solid var(--bd); }
+    header h1 { margin:0 0 4px; font-size:22px; }
+    header p { margin:0; color:#8b949e; font-size:14px; }
+    .filters { padding:16px 32px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    select, button { background:var(--card); color:var(--fg); border:1px solid var(--bd); border-radius:6px; padding:8px 12px; font-size:14px; }
+    button { cursor:pointer; }
+    main { padding:0 32px 32px; display:grid; grid-template-columns:2fr 1fr; gap:24px; }
+    .card { background:var(--card); border:1px solid var(--bd); border-radius:10px; padding:20px; }
+    .stat { font-size:30px; font-weight:700; color:var(--accent); }
+    .stat-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--bd); }
+    .muted { color:#8b949e; font-size:13px; }
+    @media (max-width:900px){ main{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>jobtech — marché de l'emploi Tech en Europe</h1>
+    <p>Indicateurs servis par l'API <code>/api/v1</code> depuis un Data Warehouse en étoile.</p>
+  </header>
+
+  <div class="filters">
+    <label>Compétence
+      <select id="skill"></select>
+    </label>
+    <label>Pays (stats)
+      <select id="country"></select>
+    </label>
+    <button id="refresh">Actualiser</button>
+    <span class="muted" id="status"></span>
+  </div>
+
+  <main>
+    <div class="card">
+      <h3>Salaire médian par pays <span class="muted" id="skill-label"></span></h3>
+      <canvas id="chart" height="120"></canvas>
+    </div>
+    <div class="card">
+      <h3>Distribution <span class="muted" id="ctx-label"></span></h3>
+      <div class="stat-row"><span>Médiane</span><span class="stat" id="median">—</span></div>
+      <div class="stat-row"><span>P25</span><span id="p25">—</span></div>
+      <div class="stat-row"><span>P75</span><span id="p75">—</span></div>
+      <div class="stat-row"><span>Moyenne</span><span id="avg">—</span></div>
+      <div class="stat-row"><span>Échantillon</span><span id="sample">—</span></div>
+    </div>
+  </main>
+
+  <script>
+    const API = (window.JOBTECH_API_BASE || "") + "/api/v1";
+    const $ = (id) => document.getElementById(id);
+    let chart;
+
+    const eur = (v) => v == null ? "—" : new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(v);
+
+    async function loadDimensions() {
+      const d = await fetch(`${API}/dimensions/`).then(r => r.json());
+      $("skill").innerHTML = d.skills.map(s => `<option>${s}</option>`).join("");
+      $("country").innerHTML = d.countries.map(c => `<option>${c}</option>`).join("");
+      if (d.skills.includes("python")) $("skill").value = "python";
+      if (d.countries.includes("FR")) $("country").value = "FR";
+    }
+
+    async function loadCube(skill) {
+      const rows = await fetch(`${API}/salary-cube/?dimensions=country&skill=${skill}`)
+        .then(r => r.json()).then(j => j.results || j);
+      rows.sort((a,b) => (b.median_salary||0) - (a.median_salary||0));
+      const labels = rows.map(r => r.country);
+      const data = rows.map(r => r.median_salary);
+      if (chart) chart.destroy();
+      chart = new Chart($("chart"), {
+        type: "bar",
+        data: { labels, datasets: [{ label: `Salaire médian (€) — ${skill}`, data, backgroundColor:"#3fb950" }] },
+        options: { plugins:{legend:{labels:{color:"#e6edf3"}}}, scales:{ x:{ticks:{color:"#8b949e"}}, y:{ticks:{color:"#8b949e"}} } }
+      });
+      $("skill-label").textContent = `· ${skill}`;
+    }
+
+    async function loadStats(country, skill) {
+      const s = await fetch(`${API}/salary-stats/?country=${country}&skill=${skill}`).then(r => r.json());
+      $("median").textContent = eur(s.median);
+      $("p25").textContent = eur(s.p25);
+      $("p75").textContent = eur(s.p75);
+      $("avg").textContent = eur(s.avg);
+      $("sample").textContent = s.sample_size ?? "—";
+      $("ctx-label").textContent = `· ${country} / ${skill}`;
+    }
+
+    async function refresh() {
+      const skill = $("skill").value, country = $("country").value;
+      $("status").textContent = "chargement…";
+      try { await Promise.all([loadCube(skill), loadStats(country, skill)]); $("status").textContent = ""; }
+      catch (e) { $("status").textContent = "erreur API"; console.error(e); }
+    }
+
+    $("refresh").addEventListener("click", refresh);
+    (async () => { await loadDimensions(); await refresh(); })();
+  </script>
+</body>
+</html>

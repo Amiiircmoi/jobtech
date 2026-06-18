@@ -1,0 +1,10 @@
+# Dépendances de développement (tests + lint). Inclut le runtime.
+-r requirements.txt
+
+pytest==8.3.4
+pytest-django==4.9.0
+pytest-cov==6.0.0
+ruff==0.8.4
+
+# Mock AWS in-process pour tester le pipeline cloud
+moto==5.2.2

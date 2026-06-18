@@ -1,0 +1,26 @@
+[tool.dagster]
+module_name = "orchestration.definitions"
+code_location_name = "jobtech"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+extend-exclude = ["**/migrations/*", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501"]  # longueur de ligne gérée par le formateur, non bloquante
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "jobtech_api.settings"
+python_files = ["test_*.py", "tests.py"]
+pythonpath = [".", "api"]
+testpaths = ["tests", "api"]
+
+[tool.coverage.run]
+source = ["pipeline", "api/analytics"]
+omit = ["*/migrations/*", "*/test_*.py", "*/tests.py"]
+
+[tool.coverage.report]
+# ingest_real.py = scrapers réels (réseau/navigateur), non testables unitairement → recul assumé
+exclude_also = ["raise NotImplementedError"]

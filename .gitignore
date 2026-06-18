@@ -1,0 +1,92 @@
+# ─────────────────────────────────────────────────────────────
+# jobtech — .gitignore strict
+# Le dépôt ne versionne QUE du code, de la config non sensible et
+# de la doc. Données, bases, secrets et binaires lourds = hors Git.
+# ─────────────────────────────────────────────────────────────
+
+# --- Secrets & config locale ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- Environnements Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+notebooks/Untitled*.ipynb
+notebooks/debug_*.html
+
+# --- Données du datalake (régénérables via le pipeline / le générateur synthétique) ---
+data/
+raw/
+silver/
+gold/
+warehouse/
+*.parquet
+
+# --- Bases de données locales ---
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Artefacts lourds / sorties ---
+*.pdf
+*.zip
+*.log
+*.tmp
+*.bak
+*.swp
+build/
+dist/
+
+# --- Dagster (instance locale / logs) ---
+.dagster_home/
+tmp_dagster*/
+
+# --- Terraform (cloud) ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# --- OS / IDE ---
+.DS_Store
+.idea/
+.vscode/
+
+# --- Réglages locaux d'éditeur / outils ---
+*.local.json
+
+# --- Exceptions : on GARDE ces données légères versionnées ---
+!config/exchange_rates.json
+
+# Pièce « non structurée » RÉELLE conservée en bronze (HTML brut public, sans PII),
+# versionnée comme échantillon d'ingestion de données non structurées.
+# (motif d'allowlist d'un seul sous-dossier sous `data/` qui est ignoré par défaut)
+!data/
+data/*
+!data/bronze/
+data/bronze/*
+!data/bronze/_reference_html/
+!data/bronze/_reference_html/**
+
+# Lambda packaging
+infra/lambda/*.zip
+!deploy/.env.prod.example

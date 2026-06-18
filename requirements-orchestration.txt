@@ -1,0 +1,6 @@
+# Orchestration des pipelines (Dagster) — Phase 3.
+# Séparé du runtime API/ETL pour garder les images applicatives légères.
+-r requirements.txt
+
+dagster==1.13.9
+dagster-webserver==1.13.9

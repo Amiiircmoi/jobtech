@@ -1,0 +1,39 @@
+# ─────────────────────────────────────────────────────────────
+# jobtech — dépendances runtime (API + ETL + données synthétiques)
+# Versions épinglées pour la reproductibilité.
+# Dépendances de dev   : requirements-dev.txt
+# Scraping navigateur  : requirements-scraping.txt (optionnel, sources fragiles)
+# Orchestration Dagster: ajoutée en Phase 3.
+# ─────────────────────────────────────────────────────────────
+
+# ── API (Django + DRF) ──
+Django==5.2.1
+djangorestframework==3.15.2
+djangorestframework-simplejwt==5.3.1
+drf-spectacular==0.27.2
+django-environ==0.11.2
+gunicorn==23.0.0
+
+# ── Accès PostgreSQL (cible de stockage unique) ──
+psycopg[binary]==3.2.3
+
+# ── ETL / transformation ──
+pandas==2.2.3
+pyarrow==18.1.0
+SQLAlchemy==2.0.36
+pycountry==24.6.1
+python-dateutil==2.9.0.post0
+
+# ── Ingestion (sources légères) ──
+requests==2.32.3
+beautifulsoup4==4.12.3
+pytrends==4.9.2
+
+# ── Qualité de données (validation schéma/types/plages, fail-fast) ──
+pandera==0.31.1
+
+# ── Données synthétiques (démo reproductible) ──
+Faker==33.1.0
+
+# ── Cloud (sync S3/DynamoDB) ──
+boto3==1.40.16

@@ -1,0 +1,6 @@
+# Reverse-proxy + HTTPS automatique (Let's Encrypt) vers l'API/dashboard jobtech.
+# {$DOMAIN} est injecté depuis l'environnement (deploy/.env).
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy api:8000
+}

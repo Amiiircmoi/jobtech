@@ -1,0 +1,70 @@
+# ════════════════════════════════════════════════════════════════════════
+# jobtech — déploiement PRODUCTION (VPS) : images GHCR + PostgreSQL + Caddy (TLS auto)
+# Lancer : voir deploy/RUNBOOK_DEPLOY.md (ou ./deploy/deploy.sh).
+# Config : deploy/.env (copié depuis .env.prod.example) — JAMAIS commité.
+# ════════════════════════════════════════════════════════════════════════
+services:
+  db:
+    image: postgres:16
+    container_name: jobtech-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # API (image publiée par la CI sur GHCR)
+  api:
+    image: ghcr.io/amiiircmoi/jobtech-api:latest
+    container_name: jobtech-api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: ${DOMAIN}
+      DJANGO_SECURE_SSL_REDIRECT: "True"   # derrière Caddy (TLS) → redirection HTTPS active
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ETL (image GHCR) — boucle d'ingestion ; lancer aussi en one-shot au 1er déploiement
+  etl:
+    image: ghcr.io/amiiircmoi/jobtech-etl:latest
+    container_name: jobtech-etl
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Reverse-proxy + TLS automatique (Let's Encrypt) pour ${DOMAIN}
+  caddy:
+    image: caddy:2
+    container_name: jobtech-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

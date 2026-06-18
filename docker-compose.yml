@@ -1,0 +1,58 @@
+# ════════════════════════════════════════════════════════════════════════
+# jobtech — orchestration des services locaux (reproductible)
+# Source de vérité de la config : fichier .env à la racine (non versionné).
+# `docker compose up -d db` suffit pour disposer du Data Warehouse PostgreSQL.
+# (Le service API est ajouté en Phase 2 ; Dagster en Phase 3.)
+# ════════════════════════════════════════════════════════════════════════
+services:
+  db:
+    image: postgres:16
+    container_name: jobtech-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Le schéma en étoile est créé à l'initialisation de la base
+      - ./sql/create_dw.sql:/docker-entrypoint-initdb.d/01_create_dw.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # API REST Django (lecture du Data Warehouse, JWT, Swagger)
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: jobtech-api
+    env_file: .env
+    environment:
+      # Surcharge l'hôte DB : nom de service Docker au lieu de localhost
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  # Conteneur ETL : exécute le pipeline médaillon (bronze → … → DW)
+  etl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jobtech-etl
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
